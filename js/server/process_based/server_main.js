@@ -40,7 +40,7 @@ for (let i = 0; i < sockets; i++) {
     setTimeout(() => {
         let sub_args = JSON.stringify({
                 port: portBase,
-                packet,
+                packet: packetSize,
                 cpu: baseCPU + 1 + i,
                 ip: octetIntegers.join('.')
             });
