@@ -1,5 +1,6 @@
-const minimist = require('minimist');
-import { fork } from 'node:child_process';
+import { execSync, fork } from 'node:child_process';
+import minimist from 'minimist';
+import os from 'node:os';
 
 // Конфигурация по умолчанию
 const DEFAULT_PORT_BASE = 40000;
@@ -14,29 +15,49 @@ const args = minimist(process.argv.slice(2), {
     default: {
         portBase: DEFAULT_PORT_BASE,
         packetSize: DEFAULT_PACKET_SIZE,
+        baseCPU: 0,
         sockets: 1
     }
 });
 
+const sockets = parseInt(args.sockets);
 const portBase = parseInt(args.portBase);
 const packetSize = parseInt(args.packetSize);
+const baseCPU = parseInt(args.baseCPU);
 
 if (isNaN(portBase)) throw new Error('Invalid port base');
 if (isNaN(packetSize)) throw new Error('Invalid packet size');
+if (isNaN(baseCPU)) throw new Error('Invalid core ID');
 
- let sub_args = JSON.stringify({
-        portBase,
-        packetSize
-    });
+const processes = [];
 
-const child = fork('./server_reciever.js', [sub_args], {
-        stdio: ['inherit', 'inherit', 'inherit', 'ipc']
-});
+for (let i = 0; i < sockets; i++) {
+    setTimeout(() => {
+        let sub_args = JSON.stringify({
+                portBase: portBase,
+                packetSize,
+                threadIndex: baseCPU + 1 + i
+            });
+
+        const child = fork('./server_reciever.js', [sub_args], {
+                stdio: ['inherit', 'inherit', 'inherit', 'ipc']
+        });
+
+        processes.push(child);
+    },1000 * i);
+}
+
+// Привязка к CPU-ядру через taskset (Linux)
+if (os.type() == 'Linux') {
+    const { pid } = process;
+    const cpu = baseCPU;
+    execSync(`taskset -cp ${cpu} ${pid}`);
+}
 
 process.on('SIGINT', () => {
     console.log('Stop signal sent to all child processes.');
-    child.send({ type: 'SIGINT' });
+    processes.forEach(child => child.send({ type: 'SIGINT' }));
     setTimeout(() => {
-        child.kill('SIGTERM');
+        processes.forEach(child => child.kill('SIGTERM'));
     }, 200);
 });
