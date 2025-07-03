@@ -14,7 +14,7 @@ const socket = dgram.createSocket({
     reusePort: true
 });
 let packetsReceived = 0;
-let pSize = workerData.packetSize;
+let pSize = workerData.packet;
 let overall = 0;
 
 socket.on('message', () => {   
@@ -27,8 +27,7 @@ socket.on('listening', () => {
     socket.setRecvBufferSize(1024 * 1024 * 100);
 });
 
-socket.bind(workerData.portBase);
-//socket.setSendBufferSize(1024 * 1024 * 100);
+socket.bind(workerData.port, workerData.ip);
 
 
 let lastPrintTime = Date.now();
@@ -39,7 +38,7 @@ setInterval(() => {
     const speed = (packetsReceived * pSize * 8) / (elapsed * 1e9);
     overall += packetsReceived;
 
-    console.log(`[SERVER:${workerData.portBase}] Speed: ${speed.toFixed(2)} Gbit/s | `
+    console.log(`[SERVER:${workerData.port}] Speed: ${speed.toFixed(2)} Gbit/s | `
             + `Received: ${overall.toLocaleString()} packets`);
 
     lastPrintTime = now;
@@ -49,7 +48,7 @@ setInterval(() => {
 // Привязка к CPU-ядру через taskset (Linux)
 if (os.type() == 'Linux') {
     const { pid } = process;
-    let i = workerData.threadIndex;
+    let i = workerData.cpu;
     const cpu = (i + 1) < os.cpus().length ? i : i - os.cpus().length;
     execSync(`taskset -cp ${cpu} ${pid}`);
     console.log(`Process ${process.pid} running on Core ${cpu}`);

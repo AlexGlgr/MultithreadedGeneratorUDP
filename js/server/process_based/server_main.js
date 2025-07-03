@@ -16,7 +16,8 @@ const args = minimist(process.argv.slice(2), {
         portBase: DEFAULT_PORT_BASE,
         packetSize: DEFAULT_PACKET_SIZE,
         baseCPU: 0,
-        sockets: 1
+        sockets: 1,
+        baseIP: '0.0.0.0'
     }
 });
 
@@ -24,6 +25,10 @@ const sockets = parseInt(args.sockets);
 const portBase = parseInt(args.portBase);
 const packetSize = parseInt(args.packetSize);
 const baseCPU = parseInt(args.baseCPU);
+const baseIP = args.baseIP;
+
+const octetStrings = baseIP.split('.');
+const octetIntegers = octetStrings.map(octet => parseInt(octet, 10));
 
 if (isNaN(portBase)) throw new Error('Invalid port base');
 if (isNaN(packetSize)) throw new Error('Invalid packet size');
@@ -34,11 +39,12 @@ const processes = [];
 for (let i = 0; i < sockets; i++) {
     setTimeout(() => {
         let sub_args = JSON.stringify({
-                portBase: portBase,
-                packetSize,
-                threadIndex: baseCPU + 1 + i
+                port: portBase,
+                packet,
+                cpu: baseCPU + 1 + i,
+                ip: octetIntegers.join('.')
             });
-
+            octetIntegers[3]++;
         const child = fork('./server_reciever.js', [sub_args], {
                 stdio: ['inherit', 'inherit', 'inherit', 'ipc']
         });
