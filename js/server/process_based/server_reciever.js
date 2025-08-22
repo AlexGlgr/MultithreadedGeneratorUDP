@@ -10,8 +10,8 @@ let workerData = JSON.parse(args);
 
 const socket = dgram.createSocket({
     type: 'udp4',
-    reuseAddr: true,
-    reusePort: true
+    reuseAddr: workerData.mode,
+    reusePort: workerData.mode
 });
 let packetsReceived = 0;
 let pSize = workerData.packet;
@@ -38,7 +38,7 @@ setInterval(() => {
     const speed = (packetsReceived * pSize * 8) / (elapsed * 1e9);
     overall += packetsReceived;
 
-    console.log(`[SERVER:${workerData.port}] Speed: ${speed.toFixed(2)} Gbit/s | `
+    console.log(`[SERVER:${workerData.ip}:${workerData.port}] Speed: ${speed.toFixed(2)} Gbit/s | `
             + `Received: ${overall.toLocaleString()} packets`);
 
     lastPrintTime = now;

@@ -5,19 +5,28 @@ import os from 'node:os';
 // Конфигурация по умолчанию
 const DEFAULT_PORT_BASE = 40000;
 const DEFAULT_PACKET_SIZE = 8192; // 8KB
+const DEFAULT_CORE = 0;
+const DEFAULT_SOCKET_SIZE = 1;
+const DEFAULT_IP = '0.0.0.0';
+
 
 // Парсинг аргументов командной строки
 const args = minimist(process.argv.slice(2), {
     alias: {
         p: 'portBase',
-        z: 'packetSize'
+        z: 'packetSize',
+        c: 'baseCPU',
+        s: 'sockets',
+        i: 'baseIP',
+        m: 'mode',
+        q: 'stock'
     },
     default: {
         portBase: DEFAULT_PORT_BASE,
         packetSize: DEFAULT_PACKET_SIZE,
-        baseCPU: 0,
-        sockets: 1,
-        baseIP: '0.0.0.0'
+        baseCPU: DEFAULT_CORE,
+        sockets: DEFAULT_SOCKET_SIZE,
+        baseIP: DEFAULT_IP
     }
 });
 
@@ -26,6 +35,8 @@ const portBase = parseInt(args.portBase);
 const packetSize = parseInt(args.packetSize);
 const baseCPU = parseInt(args.baseCPU);
 const baseIP = args.baseIP;
+const singularMode = (args.mode === undefined ? false : true);
+const stockIP = (args.stock === undefined ? false : true);
 
 const octetStrings = baseIP.split('.');
 const octetIntegers = octetStrings.map(octet => parseInt(octet, 10));
@@ -39,12 +50,15 @@ const processes = [];
 for (let i = 0; i < sockets; i++) {
     setTimeout(() => {
         let sub_args = JSON.stringify({
-                port: portBase,
+                port: portBase + (singularMode ? 0 : i),
                 packet: packetSize,
-                cpu: baseCPU + 1 + i,
-                ip: octetIntegers.join('.')
+                cpu: baseCPU + i,
+                ip: octetIntegers.join('.'),
+                mode: singularMode
             });
-            octetIntegers[3]++;
+            if (stockIP){
+                octetIntegers[3]++;
+            }
         const child = fork('./server_reciever.js', [sub_args], {
                 stdio: ['inherit', 'inherit', 'inherit', 'ipc']
         });

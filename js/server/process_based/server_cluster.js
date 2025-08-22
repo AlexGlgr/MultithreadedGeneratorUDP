@@ -8,20 +8,27 @@ import dgram  from 'dgram';
 // Конфигурация по умолчанию
 const DEFAULT_PORT_BASE = 40000;
 const DEFAULT_PACKET_SIZE = 8192; // 8KB
+const DEFAULT_CORE = 0;
+const DEFAULT_SOCKET_SIZE = 1;
+const DEFAULT_IP = '0.0.0.0';
 
 // Парсинг аргументов командной строки
 const args = minimist(process.argv.slice(2), {
     alias: {
-        s: 'sockets',
         p: 'portBase',
         z: 'packetSize',
-        c: 'baseCPU'
+        c: 'baseCPU',
+        s: 'sockets',
+        i: 'baseIP',
+        m: 'mode',
+        q: 'stock'
     },
     default: {
         portBase: DEFAULT_PORT_BASE,
         packetSize: DEFAULT_PACKET_SIZE,
-        baseCPU: 0,
-        sockets: 1
+        baseCPU: DEFAULT_CORE,
+        sockets: DEFAULT_SOCKET_SIZE,
+        baseIP: DEFAULT_IP
     }
 });
 
@@ -29,6 +36,16 @@ const sockets = parseInt(args.sockets);
 const portBase = parseInt(args.portBase);
 const packetSize = parseInt(args.packetSize);
 const baseCPU = parseInt(args.baseCPU);
+const baseIP = args.baseIP;
+const singularMode = (args.mode === undefined ? false : true);
+const stockIP = (args.stock === undefined ? false : true);
+
+const octetStrings = baseIP.split('.');
+const octetIntegers = octetStrings.map(octet => parseInt(octet, 10));
+
+if (isNaN(portBase)) throw new Error('Invalid port base');
+if (isNaN(packetSize)) throw new Error('Invalid packet size');
+if (isNaN(baseCPU)) throw new Error('Invalid core ID');
 
 if (cluster.isPrimary) {
     const workers = [];
@@ -36,9 +53,14 @@ if (cluster.isPrimary) {
     for (let i = 0; i < sockets; i++) {
         _env.port = portBase;
         _env.packetSize = packetSize;
-        _env.baseCPU = baseCPU + 1 + i;   
+        _env.baseCPU = baseCPU + i;
+        _env.ip = octetIntegers.join('.');
+        _env.mode = singularMode;
         const worker = cluster.fork(_env);
         workers.push(worker);
+        if (stockIP){
+            octetIntegers[3]++;
+        }
     }
     if (os.type() == 'Linux') {
         const { pid } = process;
@@ -58,8 +80,8 @@ if (cluster.isPrimary) {
 
     const socket = dgram.createSocket({
         type: 'udp4',
-        reuseAddr: true,
-        reusePort: true
+        reuseAddr: env.mode,
+        reusePort: env.mode
     });
     let packetsReceived = 0;
     let pSize = env.packetSize;
@@ -75,7 +97,7 @@ if (cluster.isPrimary) {
         socket.setRecvBufferSize(1024 * 1024 * 100);
     });
     
-    socket.bind(env.port);
+    socket.bind(env.port, env.ip);
 
     let lastPrintTime = Date.now();
     setInterval(() => {
