@@ -1,0 +1,131 @@
+{
+    "id": 0,
+    "workTime": 60,
+    "groups": [
+        {
+            "name": "1d",
+            "filesPath": "./1d_sensors.zip",
+            "loop": false,
+            "freq": 1000,
+            "pkt_size": 8192,
+            "dst": "10.120.101.11:50000",
+            "sensors": [
+                {
+                    "name": "sensName1",
+                    "src": "10.110.100.1",
+                    "vlan": "1001"
+                },
+                {
+                    "name": "sensName2",
+                    "src": "10.110.100.2",
+                    "vlan": "1002"
+                },
+                {
+                    "name": "sensName3",
+                    "src": "10.110.100.3",
+                    "vlan": "1003"
+                },
+                {
+                    "name": "sensName4",
+                    "src": "10.110.100.4",
+                    "vlan": "1004"
+                },
+                {
+                    "name": "sensName5",
+                    "src": "10.110.100.5",
+                    "vlan": "1005"
+                },
+                {
+                    "name": "sensName6",
+                    "src": "10.110.100.6",
+                    "vlan": "1006"
+                },
+                {
+                    "name": "sensName7",
+                    "src": "10.110.100.7",
+                    "vlan": "1007"
+                },
+                {
+                    "name": "sensName8",
+                    "src": "10.110.100.8",
+                    "vlan": "1008"
+                },
+                {
+                    "name": "sensName9",
+                    "src": "10.110.100.9",
+                    "vlan": "1009"
+                },
+                {
+                    "name": "sensName10",
+                    "src": "10.110.100.10",
+                    "vlan": "10010"
+                },
+                {
+                    "name": "sensName11",
+                    "src": "10.110.100.11",
+                    "vlan": "1011"
+                },
+                {
+                    "name": "sensName12",
+                    "src": "10.110.100.12",
+                    "vlan": "1012"
+                },
+                {
+                    "name": "sensName13",
+                    "src": "10.110.100.13",
+                    "vlan": "1013"
+                },
+                {
+                    "name": "sensName14",
+                    "src": "10.110.100.14",
+                    "vlan": "1014"
+                },
+                {
+                    "name": "sensName15",
+                    "src": "10.110.100.15",
+                    "vlan": "1015"
+                },
+                {
+                    "name": "sensName16",
+                    "src": "10.110.100.16",
+                    "vlan": "1016"
+                },
+                {
+                    "name": "sensName17",
+                    "src": "10.110.100.17",
+                    "vlan": "1017"
+                },
+                {
+                    "name": "sensName18",
+                    "src": "10.110.100.18",
+                    "vlan": "10018"
+                },
+                {
+                    "name": "sensName19",
+                    "src": "10.110.100.19",
+                    "vlan": "1019"
+                },
+                {
+                    "name": "sensName20",
+                    "src": "10.110.100.20",
+                    "vlan": "1020"
+                }
+            ]
+        },
+        {
+            "name": "2d",
+            "filesPath": "./2d_sensors.zip",
+            "loop": false,
+            "freq": 1000,
+            "pkt_size": 8192,
+            "dst": "10.120.101.11:50001",
+            "sensors": [
+                {
+                    "name": "sensName1",
+                    "src": "10.110.100.21",
+                    "vlan": "2001"
+                }
+            ]
+        }
+    ]
+}
