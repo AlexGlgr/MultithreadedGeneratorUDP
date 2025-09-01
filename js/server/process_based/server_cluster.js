@@ -56,12 +56,17 @@ if (cluster.isPrimary) {
                         console.error(`Cannot connect via recieved data! Port:${data.port}, IP: ${data.ip}`);
                         break;
                     }
-                    client.connect(msg.port, msg.ip, () => {
-                        console.log('Connected to server ', msg.ip);
+                    try {
+                        client.connect(msg.port, msg.ip, () => {
+                            console.log('Connected to server ', msg.ip);
 
-                        // Send data to the server
-                        client.write(JSON.stringify({com: 'registered', name: 'cluster_server', status: 'running'}));
-                    });                    
+                            // Send data to the server
+                            client.write(JSON.stringify({com: 'registered', name: 'cluster_server', status: 'running'}));
+                        });
+                    }
+                    catch (e) {
+                        console.error(e);
+                    }
                     break;
                 case 'packets':
                     gl_send_packets += msg.packets_send;
@@ -72,12 +77,6 @@ if (cluster.isPrimary) {
                     console.log(`Recieved ${packets} packets out of (${gl_send_packets} total)`);
                     break;
                 case 'start':
-                    start(msg.config);
-                    client.write(JSON.stringify({com: 'started', name: 'cluster_server', status: 'listenning'}));
-                    break;
-                case 'stop':
-                    console.log(`Test is over. Max speed: ${gl_max_speed.toFixed(2)} Gbit/s | Send packets: ${gl_send_packets == 0 ? 'No data' : gl_send_packets} | Received packets: ${gl_recieved_packets} | `
-                            + `Loss percentage: ${gl_send_packets == 0 ? 'No data' : `${((1 - (gl_recieved_packets/gl_send_packets))*100).toFixed(2)}%`}`);
                     gl_send_packets = 0;
                     gl_recieved_packets = 0;
                     gl_max_speed = 0;
@@ -86,15 +85,37 @@ if (cluster.isPrimary) {
                         record.pps = 0;
                         record.overall = 0;
                     });
+                    start(msg.config);
+                    try {
+                        client.write(JSON.stringify({com: 'started', name: 'cluster_server', status: 'listenning'}));
+                    }
+                    catch (e) {
+                        console.error(e);
+                    }
+                    break;
+                case 'stop':
+                    console.log(`Test is over. Max speed: ${gl_max_speed.toFixed(2)} Gbit/s | Send packets: ${gl_send_packets == 0 ? 'No data' : gl_send_packets} | Received packets: ${gl_recieved_packets} | `
+                            + `Loss percentage: ${gl_send_packets == 0 ? 'No data' : `${((1 - (gl_recieved_packets/gl_send_packets))*100).toFixed(2)}%`}`);
                     workers.forEach((worker) => {
                         worker.kill();
                     });
                     clearInterval(interval);
-                    client.write(JSON.stringify({com: 'stopped', name: 'cluster_server', status: 'running'}));
+                    try {
+                        client.write(JSON.stringify({com: 'stopped', name: 'cluster_server', status: 'running'}));
+                    }
+                    catch (e) {
+                        console.error(e);
+                    }                    
                     break;
                 case 'roundrobin':
-                    cluster.schedulingPolicy = data.rr === cluster.SCHED_RR ? cluster.SCHED_RR : cluster.SCHED_NONE;
+                    cluster.schedulingPolicy = msg.rr === cluster.SCHED_RR ? cluster.SCHED_RR : cluster.SCHED_NONE;
                     console.log('Schedule policy set to ', cluster.schedulingPolicy);
+                    try {
+                        client.write(JSON.stringify({com: 'scheduled', name: 'cluster_server', status: 'running'}));
+                    }
+                    catch (e) {
+                        console.error(e);
+                    }
                     break;
                 default:
                     break;
