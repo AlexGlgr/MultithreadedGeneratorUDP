@@ -13,16 +13,21 @@ const DEFAULT_TCP_IP = '10.120.100.51';
 
 // Парсинг аргументов командной строки
 const args = minimist(process.argv.slice(2), {
+    string: ['port','ip'],
+    boolean: 'def',
     alias: {
         p: 'port',
         i: 'ip',
+        d: 'def'
     },
     default: {
         port: DEFAULT_TCP_PORT,
-        ip: DEFAULT_TCP_IP
-       
+        ip: DEFAULT_TCP_IP,
+        def: false
     }
 });
+
+const def = args.def & 1;
 
 const tcp_port = parseInt(args.port);
 if (isNaN(tcp_port)) { console.error('Invalid TCP port, using default value', DEFAULT_TCP_PORT);
@@ -41,92 +46,120 @@ let interval;
 let gl_recieved_packets = 0;
 let gl_send_packets = 0;
 let gl_max_speed = 0;
+let buffer = "";
 
 if (cluster.isPrimary) {
     _env = Object.assign({}, process.env);
 
-    const client = new net.Socket(); 
+   // const client = new net.Socket(); 
 
-    const tcp_server = net.createServer((socket) => {
-        socket.on('data', (data) => {
-            const msg = JSON.parse(data.toString());
-            switch (msg.com) {
-                case 'register':
-                    if (isNaN(parseInt(msg.port)) || net.isIP(msg.ip) === 0) {
-                        console.error(`Cannot connect via recieved data! Port:${data.port}, IP: ${data.ip}`);
-                        break;
-                    }
-                    try {
-                        client.connect(msg.port, msg.ip, () => {
-                            console.log('Connected to server ', msg.ip);
-
-                            // Send data to the server
-                            client.write(JSON.stringify({com: 'registered', name: 'cluster_server', status: 'running'}));
-                        });
-                    }
-                    catch (e) {
-                        console.error(e);
-                    }
-                    break;
-                case 'packets':
-                    gl_send_packets += msg.packets_send;
-                    break;
-                case 'drypackets':
-                    const packets = msg.packets_send;
-                    gl_send_packets += packets;
-                    console.log(`Recieved ${packets} packets out of (${gl_send_packets} total)`);
-                    break;
-                case 'start':
-                    gl_send_packets = 0;
-                    gl_recieved_packets = 0;
-                    gl_max_speed = 0;
-                    speedData.forEach((record) => {
-                        record.speed = 0;
-                        record.pps = 0;
-                        record.overall = 0;
-                    });
-                    start(msg.config);
-                    try {
-                        client.write(JSON.stringify({com: 'started', name: 'cluster_server', status: 'listenning'}));
-                    }
-                    catch (e) {
-                        console.error(e);
-                    }
-                    break;
-                case 'stop':
-                    console.log(`Test is over. Max speed: ${gl_max_speed.toFixed(2)} Gbit/s | Send packets: ${gl_send_packets == 0 ? 'No data' : gl_send_packets} | Received packets: ${gl_recieved_packets} | `
-                            + `Loss percentage: ${gl_send_packets == 0 ? 'No data' : `${((1 - (gl_recieved_packets/gl_send_packets))*100).toFixed(2)}%`}`);
-                    workers.forEach((worker) => {
-                        worker.kill();
-                    });
-                    clearInterval(interval);
-                    try {
-                        client.write(JSON.stringify({com: 'stopped', name: 'cluster_server', status: 'running'}));
-                    }
-                    catch (e) {
-                        console.error(e);
-                    }                    
-                    break;
-                case 'roundrobin':
-                    cluster.schedulingPolicy = msg.rr === cluster.SCHED_RR ? cluster.SCHED_RR : cluster.SCHED_NONE;
-                    console.log('Schedule policy set to ', cluster.schedulingPolicy);
-                    try {
-                        client.write(JSON.stringify({com: 'scheduled', name: 'cluster_server', status: 'running'}));
-                    }
-                    catch (e) {
-                        console.error(e);
-                    }
-                    break;
-                default:
-                    break;
-            }
-            //gl_send_packets += JSON.parse(data.toString()).packets_send;
+    if (def) {
+        console.log('Default Start');
+        gl_send_packets = 0;
+        gl_recieved_packets = 0;
+        gl_max_speed = 0;
+        speedData.forEach((record) => {
+            record.speed = 0;
+            record.pps = 0;
+            record.overall = 0;
         });
-    });
-            
-    tcp_server.listen(tcp_port, tcp_ip, () => {
-        console.log('TCP connection on ', tcp_server.address());
-    });
+        start({def: true});
+    }
+    else {
+        const tcp_server = net.createServer((socket) => {
+            //socket.writableLength = 1024 * 1024 * 10;
+            socket.on('data', (data) => {
+                try {
+                    data = buffer+data;
+                    const msg = JSON.parse(data.toString());
+                    switch (msg.com) {
+                        case 'register':
+                            console.log('Connected to server', msg);
+                            socket.write(JSON.stringify({com: 'registered', name: 'cluster_server', status: 'running'}));
+                            /*if (isNaN(parseInt(msg.port)) || net.isIP(msg.ip) === 0) {
+                                console.error(`Cannot connect via recieved data! Port:${msg.port}, IP: ${msg.ip}`);
+                                break;
+                            }
+                            try {
+                                client.connect(msg.port, msg.ip, () => {
+                                    console.log('Connected to server', msg);
+
+                                    // Send data to the server
+                                    client.write(JSON.stringify({com: 'registered', name: 'cluster_server', status: 'running'}));
+                                });
+                            }
+                            catch (e) {
+                                console.error(e);
+                            }*/
+                            break;
+                        case 'packets':
+                            gl_send_packets += msg.packets_send;
+                            break;
+                        case 'drypackets':
+                            const packets = msg.packets_send;
+                            gl_send_packets += packets;
+                            console.log(`Recieved ${packets} packets out of (${gl_send_packets} total)`);
+                            break;
+                        case 'start':
+                            console.log('Start');
+                            gl_send_packets = 0;
+                            gl_recieved_packets = 0;
+                            gl_max_speed = 0;
+                            speedData.forEach((record) => {
+                                record.speed = 0;
+                                record.pps = 0;
+                                record.overall = 0;
+                            });
+                            start(msg.config);
+                            try {
+                                socket.write(JSON.stringify({com: 'started', name: 'cluster_server', status: 'listenning'}));
+                            }
+                            catch (e) {
+                                console.error(e);
+                            }
+                            break;
+                        case 'stop':
+                            console.log(`Test is over. Max speed: ${gl_max_speed.toFixed(2)} Gbit/s | Send packets: ${gl_send_packets == 0 ? 'No data' : gl_send_packets} | Received packets: ${gl_recieved_packets} | `
+                                    + `Loss percentage: ${gl_send_packets == 0 ? 'No data' : `${((1 - (gl_recieved_packets/gl_send_packets))*100).toFixed(2)}%`}`);
+                            workers.forEach((worker) => {
+                                worker.kill();
+                            });
+                            workers = [];
+                            clearInterval(interval);
+                            try {
+                                socket.write(JSON.stringify({com: 'stopped', name: 'cluster_server', status: 'running'}));
+                            }
+                            catch (e) {
+                                console.error(e);
+                            }                    
+                            break;
+                        case 'roundrobin':
+                            cluster.schedulingPolicy = msg.rr === cluster.SCHED_RR ? cluster.SCHED_RR : cluster.SCHED_NONE;
+                            console.log('Schedule policy set to ', cluster.schedulingPolicy);
+                            try {
+                                socket.write(JSON.stringify({com: 'scheduled', name: 'cluster_server', status: 'running'}));
+                            }
+                            catch (e) {
+                                console.error(e);
+                            }
+                            break;
+                        default:
+                            break;
+                    }
+                    buffer = "";
+                    //gl_send_packets += JSON.parse(data.toString()).packets_send;
+                }
+                catch (e) {
+                    buffer += data;
+                }
+            });
+        });
+                
+        tcp_server.listen(tcp_port, tcp_ip, () => {
+            console.log('TCP connection on ', tcp_server.address());
+        });
+    }
+   
 
     if (os.type() == 'Linux') {
         const { pid } = process;
@@ -171,18 +204,28 @@ if (cluster.isPrimary) {
 
 function start(jsonData) {
     let sensors = [];
-    let group_count = jsonData.groups.length;
-    for (let g = 0; g < group_count; g++) {
-        let group = jsonData.groups[g].sensors;
-
-        group.forEach((sensor) => {
-            sensors.push({group: g, ip: sensor.dst.split(':')[0], port: parseInt(sensor.dst.split(':')[1])});            
-        });
+    let group_count;
+    if (def) {
+        group_count = 25;
+        for (let i = 0; i < group_count; i++) {
+            sensors.push({group: i, ip: '0.0.0.0', port: 40000+i});
+        }
     }
+    else {
+        group_count = jsonData.groups.length;
+        for (let g = 0; g < group_count; g++) {
+            let group = jsonData.groups[g].sensors;
+
+            group.forEach((sensor) => {
+                sensors.push({group: g, ip: sensor.dst.split(':')[0], port: parseInt(sensor.dst.split(':')[1])});
+            });
+        }
+    }   
+    
 
     for (let i = 0; i < sensors.length; i++) {
         _env.port = sensors[i].port;
-        _env.baseCPU = i;
+        _env.baseCPU = 31 - (i % 31);
         _env.ip = sensors[i].ip | '0.0.0.0';
         _env.mode = false;
         const worker = cluster.fork(_env);
@@ -225,9 +268,8 @@ function start(jsonData) {
 
             if (gl_max_speed < overall_speed) gl_max_speed = overall_speed;
             gl_recieved_packets = overall_packet_count;
-
-            console.log(`\nTotal Speed: ${overall_speed.toFixed(2)} Gbit/s | Pps: ${overall_pps} packets | Received: ${overall_packet_count} packets | `
-                + `Avg. packet size: ${Math.floor(((overall_speed*1e9)/overall_pps)/8)} bytes`);            
-        }      
+        }
+        console.log(`\nTotal Speed: ${overall_speed.toFixed(2)} Gbit/s | Pps: ${overall_pps} packets | Received: ${overall_packet_count} packets | `
+                + `Avg. packet size: ${Math.floor(((overall_speed*1e9)/overall_pps)/8)} bytes`);   
     }, 2000);
 }
